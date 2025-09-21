@@ -99,8 +99,12 @@ export async function exportDailyQualityReport(rows: ProcessedRow[], selectedDat
   const wb = XLSX.utils.book_new()
   const ws_data: any[][] = []
 
-  // Add header
-  ws_data.push(['Daily Quality Performance Report', '', '', '', '', 'Date:', formatDate(selectedDate)])
+  // Add company header
+  ws_data.push(['GAYATRI SHAKTI PAPERS & BOARDS LIMITED'])
+  ws_data.push(['Plot No.: 808/D, 3rd Phase GIDC, Vapi-396195, Gujarat (INDIA)'])
+  ws_data.push(['Phone: +91-260-2400598/2431725  Email: gstploffice@gmail.com'])
+  ws_data.push([])
+  ws_data.push(['Daily Quality Performance Report', '', '', '', '', '', 'Dated:', formatDate(selectedDate)])
   ws_data.push([]) // Empty row
 
   // Group data by rewinder
@@ -230,6 +234,13 @@ export async function exportDailyQualityReport(rows: ProcessedRow[], selectedDat
     { wch: 10 },
     { wch: 10 },
   ]
+
+  // Merge cells for headers
+  if (!ws['!merges']) ws['!merges'] = []
+  ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }) // Company name
+  ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 9 } }) // Address
+  ws['!merges'].push({ s: { r: 2, c: 0 }, e: { r: 2, c: 9 } }) // Contact
+  ws['!merges'].push({ s: { r: 4, c: 0 }, e: { r: 4, c: 5 } }) // Report title
 
   // Add worksheet to workbook
   XLSX.utils.book_append_sheet(wb, ws, 'Daily Quality Report')

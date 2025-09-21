@@ -6,6 +6,7 @@ import { ProcessedRow } from '@/lib/types'
 import { METRICS } from '@/lib/constants'
 import { exportCoaPdfForDate } from '@/lib/pdfExport'
 import { exportDailyQualityReport } from '@/lib/excelExport'
+import { exportStyledDailyQualityReport } from '@/lib/excelExportStyled'
 
 interface ReportProps {
   rows: ProcessedRow[]
@@ -122,7 +123,7 @@ export default function Report({ rows }: ReportProps) {
         }
         
         try {
-          await exportDailyQualityReport(rows, input)
+          await exportStyledDailyQualityReport(rows, input)
         } catch (err) {
           console.error(err)
           alert('Failed to generate Excel report.')

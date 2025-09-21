@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { 
-  Chart as ChartJS, 
+  Chart,
   CategoryScale,
   LinearScale,
   PointElement,
@@ -12,7 +12,8 @@ import {
   Tooltip,
   Legend,
   ChartData,
-  ChartOptions
+  ChartOptions,
+  registerables
 } from 'chart.js'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
 import { TrendRows, TrendRow } from '@/lib/types'
@@ -26,17 +27,7 @@ import {
 } from '@/lib/trendUtils'
 import { normGsmPlyLabel } from '@/lib/utils'
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartDataLabels
-)
+Chart.register(...registerables, ChartDataLabels)
 
 interface TrendPanelProps {
   trendRows: TrendRows
@@ -54,7 +45,7 @@ export default function TrendPanel({ trendRows, onClose }: TrendPanelProps) {
   const [endDate, setEndDate] = useState('')
   const [summary, setSummary] = useState('Analyzing 0 records.')
   
-  const chartRef = useRef<ChartJS | null>(null)
+  const chartRef = useRef<Chart | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const uniq = (arr: string[]) => [...new Set(arr)]
@@ -295,7 +286,7 @@ export default function TrendPanel({ trendRows, onClose }: TrendPanelProps) {
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d')
       if (ctx) {
-        chartRef.current = new ChartJS(ctx, {
+        chartRef.current = new Chart(ctx, {
           type: chartType as any,
           data: chartData,
           options: chartOptions

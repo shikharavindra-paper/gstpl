@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tissue Quality Control – Rewinder Daily & Trends</title>
+
+<!-- External libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+
+
+<style>
+
+  :root{ --gap:10px; }
+  html,body{height:100%}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;background:#fff}
+  .wrap{max-width:1100px;margin:24px auto;padding:0 16px 24px}
+
+  .company-header{display:grid;grid-template-columns:140px 1fr 120px;align-items:center;column-gap:16px;padding:12px 0 6px;border-bottom:2px solid #0a0a0a10}
+  .company-header .logo{width:120px;height:120px;object-fit:contain}
+  .company-header .title{text-align:center}
+  .company-header .title h2{margin:0;font-size:28px;letter-spacing:.5px}
+  .company-header .title .sub{margin-top:4px;font-size:12px;line-height:1.35}
+  .company-header .rightbox{justify-self:end;width:90px;height:28px;border:2px solid #3a7c3a;border-radius:3px}
+  .report-banner{ text-align:center; font-weight:700; font-size:18px; margin:12px 0 4px; }
+
+  .muted{color:#666;font-size:12px}
+  .card{border:1px solid #ddd;border-radius:8px;padding:14px;margin:12px 0;background:#fff}
+  .row{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap);align-items:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
+  .pill{display:inline-block;padding:2px 6px;border:1px solid #ddd;border-radius:999px;font-size:12px}
+  button{padding:8px 10px; cursor:pointer}
+  select,input[type="file"],input[type="date"]{padding:6px}
+
+  .dateHead{font-weight:700;font-size:16px;margin-top:14px;border-left:4px solid #444;padding-left:8px}
+  .rewHead{font-weight:600;font-size:14px;margin:8px 0 6px}
+  .qgpHead{font-weight:600;margin:10px 0 6px}
+  table{border-collapse:collapse;width:100%}
+  th,td{border:1px solid #e6e6e6;padding:6px 8px;font-size:13px;vertical-align:top}
+  th{background:#fafafa}
+  .report-table td.right{ text-align:right; font-variant-numeric:tabular-nums; }
+
+  /* ---- Trend Analysis UI ---- */
+  .seg { display:inline-flex; border:1px solid #ddd; border-radius:10px; overflow:hidden; }
+  .seg button{ padding:6px 10px; border:0; background:#fff; cursor:pointer; }
+  .seg button.active{ background:#0b5fff10; font-weight:600; }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ border:1px solid #ddd; border-radius:999px; padding:6px 10px; cursor:pointer; background:#fff; }
+  .chip.active{ background:#0b5fff10; border-color:#98b6ff; font-weight:600; }
+  .pill-blue{ background:#09f; color:#fff; padding:10px 12px; border-radius:10px; font-weight:600; }
+  .trend-toolbar{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .trend-toolbar .right{ margin-left:auto; display:flex; gap:10px; }
+  .inputs-inline{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .trend-quick button{ padding:6px 10px; border:1px solid #ddd; background:#fff; border-radius:8px; cursor:pointer; }/* Stronger borders for the output (report) tables */
+  .report-table {
+    border-collapse: collapse;
+  }
+  .report-table th,
+  .report-table td {
+    border: 1.5px solid #444;
+  }
+  .report-table thead th {
+    background: #f3f3f3;
+    border-bottom: 2px solid #222;
+    font-weight: 700;
+  }
+  .report-table {
+    border: 2px solid #222;
+    border-radius: 4px;
+  }
+  @media print {
+    .report-table th,
+    .report-table td {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      border-color: #111;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="pdfRoot">
+  <!-- Header -->
+  <div class="company-header">
+    <img id="logoImg" class="logo" alt="Logo" />
+    <div class="title">
+      <h2>GAYATRISHAKTI TISSUE</h2>
+      <div class="sub">Plot no.808/D, 3rd Phase, GIDC<br/>Vapi-396195, Gujarat INDIA</div>
+    </div>
+    <div class="rightbox" aria-hidden="true"></div>
+  </div>
+  <div class="report-banner">Tissue Quality Control – Rewinder Daily Report</div>
+
+  <!-- Controls -->
+  <div class="card no-print no-export">
+    <div class="row" style="grid-template-columns: 1fr 1fr;">
+      <div>
+        <label><strong>Upload Excel (.xlsx / .xlsm)</strong></label><br/>
+        <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" />
+        <div class="muted">Pick your Excel workbook here (not this HTML file).</div>
+      </div>
+      <div>
+        <label><strong>Detected Sheets</strong></label>
+        <div id="sheetHint" class="muted">Load a file to populate…</div>
+      </div>
+    </div>
+
+    <div id="sheetSelectors" class="grid2" style="display:none; margin-top:10px;">
+      <div><label>Rewinder-1 Sheet</label><select id="rew1Sel"></select></div>
+      <div><label>Rewinder-2 Sheet</label><select id="rew2Sel"></select></div>
+      <div><label>Specs Sheet</label><select id="specSel"></select></div>
+      <div>
+        <label>Date Parse (optional)</label>
+        <select id="dateFormat">
+          <option value="">Auto</option>
+          <option value="dd/mm/yyyy">dd/mm/yyyy</option>
+          <option value="mm/dd/yyyy">mm/dd/yyyy</option>
+          <option value="yyyy-mm-dd">yyyy-mm-dd</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:10px;">
+      <div>
+        <label><strong>Filter by Date</strong> (for Report section)</label>
+        <div class="row" style="grid-template-columns: 1fr 1fr;">
+          <div><label class="muted">From</label><input id="fromDate" type="date"/></div>
+          <div><label class="muted">To</label><input id="toDate" type="date"/></div>
+        </div>
+      </div>
+      <div>
+        <label class="muted">Header detection (for your sheets)</label>
+        <pre id="headerPreview">(will show after you generate)</pre>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:10px;">
+      <div>
+        <label><strong>Logo</strong></label><br/>
+        <input id="logoInput" type="file" accept=".png,.jpg,.jpeg,.svg,.webp" />
+        <div class="muted">If not selected, it loads <code>./GSTPL_logo.jpg</code>.</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+        <button id="genBtn">Generate Report</button>
+        <span id="status" class="pill" aria-live="polite">idle</span>
+        <button id="dlCsvBtn" disabled>Download CSV</button>
+        <button id="dlXlsxBtn" disabled>Download Excel</button>
+        <button id="dlCoaPdfBtn" disabled>COA (PDF)</button>
+        <button id="trendsBtn" type="button" disabled>Trends</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report results -->
+  <div class="card stack" id="results"></div>
+
+  <!-- Trend Analysis -->
+  <div id="trendPanel" class="card no-print" style="display:none;">
+    <div class="trend-toolbar">
+      <div class="seg" id="trendPeriodSeg">
+        <button data-p="daily" class="active">DAILY</button>
+        <button data-p="weekly">WEEKLY</button>
+        <button data-p="monthly">MONTHLY</button>
+      </div>
+
+      <div class="seg" id="trendTypeSeg">
+        <button data-t="line" class="active">LINE</button>
+        <button data-t="bar">BAR</button>
+      </div>
+
+      <div class="right inputs-inline">
+        <div>
+          <label>Rewinder</label><br/>
+          <select id="trendRew"></select>
+        </div>
+        <div>
+          <label>Quality</label><br/>
+          <select id="trendQuality"></select>
+        </div>
+        <div>
+          <label>GSM</label><br/>
+          <select id="trendGsm"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="inputs-inline" style="margin-top:10px;">
+      <div class="trend-quick">
+        <span class="muted">Quick select:</span>
+        <button data-q="today">Today</button>
+        <button data-q="yesterday">Yesterday</button>
+        <button data-q="7">Last 7 Days</button>
+        <button data-q="30">Last 30 Days</button>
+        <button data-q="thisMonth">This Month</button>
+        <button data-q="lastMonth">Last Month</button>
+      </div>
+      <div class="inputs-inline" style="margin-left:auto;">
+        <div>
+          <label>Start Date</label><br/>
+          <input id="trendStart" type="text" placeholder="dd/mm/yyyy" />
+        </div>
+        <div>
+          <label>End Date</label><br/>
+          <input id="trendEnd" type="text" placeholder="dd/mm/yyyy" />
+        </div>
+        <button id="plotTrendBtn" type="button" style="height:36px;">Plot</button>
+      </div>
+    </div>
+
+    <div id="trendSummary" class="pill-blue" style="margin-top:10px;">Analyzing 0 records.</div>
+
+    <div style="margin-top:14px;">
+      <div class="muted">Select Metrics (compare up to 4): <span id="metricCount">0/4</span> selected</div>
+      <div id="metricChips" class="chip-row" style="margin-top:6px;"></div>
+      <div class="inputs-inline" style="gap:18px; margin-top:8px;">
+        <label><input id="trendMA" type="checkbox"/> Show Moving Average</label>
+        <label><input id="trendCL" type="checkbox"/> Show Control Limits</label>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <canvas id="trendCanvas" height="260"></canvas>
+    </div>
+
+    <div class="muted" id="trendHint" style="margin-top:6px;"></div>
+  </div>
+</div>
+
+<script>
+/* Everything runs after DOMContentLoaded */
+window.addEventListener('DOMContentLoaded', () => {
+
+/* ------------ Persist UI selections ------------- */
+const PREFS_KEY = 'gstpl_ui_prefs_v7';
+const loadPrefs = () => { try{ return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}'); }catch{ return {}; } };
+const savePrefs = (obj) => { localStorage.setItem(PREFS_KEY, JSON.stringify(obj||{})); };
+
+/* ------------ Logo ------------- */
+(function initLogo(){
+  const img = document.getElementById('logoImg');
+  const saved = localStorage.getItem('gstpl_logo_dataurl');
+  const fallback = './GSTPL_logo.jpg';
+  img.crossOrigin = 'anonymous';
+  img.src = saved || fallback;
+
+  const input = document.getElementById('logoInput');
+  if(input){
+    input.addEventListener('change', (e)=>{
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const dataUrl = reader.result;
+          localStorage.setItem('gstpl_logo_dataurl', dataUrl);
+          img.removeAttribute('crossorigin');
+          img.src = dataUrl;
+        }catch(err){
+          console.error(err);
+          alert('Could not save logo in this browser.');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+})();
+
+/* ------------ Helpers ------------- */
+function normKey(s){ return String(s||"").replace(/\u00A0/g," ").toLowerCase().replace(/[,\s\-\_\/\\\(\)\[\]\.\%]+/g,"").replace(/µ/g,"u"); }
+function normalizeHeader(h){ return String(h ?? "").trim(); }
+const $ = s => document.querySelector(s);
+function updateStatus(msg){ const el=$("#status"); if(el) el.textContent = msg; }
+function num(v){ const x=Number(v); return isFinite(x)?x:null; }
+function firstNumber(v){
+  if(v==null||v==="") return null;
+  if(typeof v==="number") return isFinite(v)?v:null;
+  const s=String(v).replace(",",".");
+  const m=s.match(/[-+]?\d*\.?\d+/);
+  return m?parseFloat(m[0]):null;
+}
+function safeDiv(a,b){ a=num(a); b=num(b); return (a==null||b==null||b===0)?null:a/b; }
+function fmt1(x){ return Number.isFinite(x) ? (Math.round(x*10)/10).toFixed(1) : ""; }
+function ymdUTC(d){ if(!(d instanceof Date)||isNaN(d)) return ""; const y=d.getUTCFullYear(), m=String(d.getUTCMonth()+1).padStart(2,"0"), dd=String(d.getUTCDate()).padStart(2,"0"); return `${y}-${m}-${dd}`; }
+function parseDate(v, fmt=""){
+  if (v==null || v==="") return null;
+  if (typeof v==="number"){ const ms = Math.round((v-25569)*86400*1000); const d = new Date(ms); if(!isNaN(d)) return d; }
+  const s=String(v).trim(); if(!s) return null;
+  try{
+    if(fmt==="dd/mm/yyyy"){ const [dd,mm,yyyy]=s.split(/[\/\-\.]/).map(n=>parseInt(n,10)); if(yyyy&&mm&&dd) return new Date(Date.UTC(yyyy,mm-1,dd)); }
+    else if(fmt==="mm/dd/yyyy"){ const [mm,dd,yyyy]=s.split(/[\/\-\.]/).map(n=>parseInt(n,10)); if(yyyy&&mm&&dd) return new Date(Date.UTC(yyyy,mm-1,dd)); }
+    else if(fmt==="yyyy-mm-dd"){ const [yyyy,mm,dd]=s.split(/[\/\-\.]/).map(n=>parseInt(n,10)); if(yyyy&&mm&&dd) return new Date(Date.UTC(yyyy,mm-1,dd)); }
+    else { const d=new Date(s); if(!isNaN(d)) return d; }
+  }catch(e){}
+  return null;
+}
+function inDateRange(d, fromStr, toStr){
+  if(!(d instanceof Date) || isNaN(d)) return false;
+  const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  if(fromStr){
+    const [y,m,dd]=fromStr.split("-").map(n=>parseInt(n,10));
+    if(day < new Date(Date.UTC(y,m-1,dd))) return false;
+  }
+  if(toStr){
+    const [y,m,dd]=toStr.split("-").map(n=>parseInt(n,10));
+    if(day > new Date(Date.UTC(y,m-1,dd))) return false;
+  }
+  return true;
+}
+function normGsmPlyLabel(s){
+  let t=String(s??"").replace(/\u00A0/g," ").trim().toLowerCase();
+  t=t.replace(/\\|-/g,"/"); t=t.replace(/\s*x\s*/g,"/"); t=t.replace(/\s+/g,"");
+  return t;
+}
+
+/* Column map */
+const COLUMN_MAP={
+  date:["Date","Production Date","Prod Date","DT","Date of Production"],
+  quality:["Quality","Grade","A/B/C Grade","Qly","Product","Paper Quality","QUALITY"],
+  gsm_ply:["GSM/Ply","GSM per Ply","Ply GSM","GSM_Ply","GSM-Ply","GSM / Ply","Gsm Ply","GSMPly","GSM x Ply"],
+  gsm:["GSM","Basis Weight","BW"],
+  thickness:["Thickness","Thicness","Caliper","Caliper (µm)","Caliper um","Caliper micro","Caliper (um)"],
+  bulk:["Bulk","BULK"],
+  dry_md:["Dry Tensile MD","Tensile MD","MD Tensile","Dry_MD","Tensile_MD","MD","DRY TS(MD)","Dry TS (MD)","Dry TS- MD"],
+  dry_cd:["Dry Tensile CD","Tensile CD","CD Tensile","Dry_CD","Tensile_CD","CD","DRY TS(CD)","Dry TS (CD)","Dry TS- CD"],
+  dry_md_cd_ratio:["MD/CD","MD /CD Ratio","MD_CD Ratio","Dry MD/CD","MDCD","MD to CD Ratio"],
+  stretch:["Stretch","Elongation","Stretch/Elongation","Stretch / Elongation %","Elongation %","% Elongation"],
+  wet_strength:["Wet Tensile","Wet Strength","Wet MD","Wet_Tensile_MD","Wet Tensile MD"],
+  wet_dry_ratio:["Wet/Dry Ratio","Wet/Dry","Wet MD/Dry MD","WetMD/DryMD","Wet_MD/Dry_MD","Wet to Dry"],
+  brightness:["Brightness","ISO Brightness","Brightness %","ISO %","Brightness  "],
+  length:["Length","Reel Length","Roll Length","Length (m)"],
+  rewinder:["Rewinder","RW","RW No","Machine","Rewinder ID"]
+};
+
+/* Metrics */
+const METRICS=[
+  {key:"gsm",label:"GSM"},
+  {key:"thickness",label:"Thickness"},
+  {key:"bulk",label:"Bulk"},
+  {key:"dry_md",label:"Dry Tensile MD"},
+  {key:"dry_cd",label:"Dry Tensile CD"},
+  {key:"dry_md_cd_ratio",label:"MD/CD (Dry)",compute:r=>safeDiv(val(r,"dry_md"),val(r,"dry_cd"))},
+  {key:"stretch",label:"Stretch / Elongation %"},
+  {key:"wet_strength",label:"Wet Tensile"},
+  {key:"wet_dry_ratio",label:"Wet/Dry Ratio",compute:r=>safeDiv(val(r,"wet_strength"),val(r,"dry_md"))},
+  {key:"brightness",label:"Brightness"},
+  {key:"length",label:"Length"}
+];
+
+/* Bind headers */
+function bindHeaders(headers){
+  const binding={}, norm={}; headers.forEach(h=>{const clean=String(h??"").trim(); norm[normKey(clean)]=clean;});
+  const pick=aliases=>{for(const a of aliases){const k=normKey(a); if(k in norm) return norm[k];} return null;};
+  for(const [logical,aliases] of Object.entries(COLUMN_MAP)){ const chosen=pick(aliases); if(chosen) binding[logical]=chosen; }
+  if(!binding.brightness){
+    const cand=headers.map(normalizeHeader).find(h=>/bright/i.test(String(h)));
+    if(cand) binding.brightness=String(cand).trim();
+  }
+  return binding;
+}
+let headerBinding={};
+function val(row,logicalKey){ const actual=headerBinding[logicalKey]; return actual?row[actual]:null; }
+
+/* Workbook helpers */
+let workbook=null;
+function sheetToRows(name){ if(!workbook||!name) return []; const ws=workbook.Sheets[name]; if(!ws) return []; return XLSX.utils.sheet_to_json(ws,{defval:null,raw:true}); }
+
+/* ================== SPECS + REPORT (vertical) ================== */
+function buildSpecsMap(specRows){
+  if(!specRows||!specRows.length) return {maps:{qual_label:new Map(),qual_num:new Map(),label_only:new Map(),num_only:new Map()},list:[]};
+  const headers=Object.keys(specRows[0]||{}).map(h=>String(h??"").trim());
+  const bind=bindHeaders(headers); const qCol=bind.quality; const gpCol=bind.gsm_ply||bind.gsm; if(!gpCol) return {maps:{qual_label:new Map(),qual_num:new Map(),label_only:new Map(),num_only:new Map()},list:[]};
+
+  const findHeaderForMetric=(metricKey)=>{const aliases=COLUMN_MAP[metricKey]||[]; for(const a of aliases){const ak=normKey(a); for(const h of headers){ if(normKey(h)===ak) return String(h).trim(); }} if(metricKey==="brightness"){const cand=headers.find(h=>/bright/i.test(String(h))); if(cand) return String(cand).trim();} return null;};
+  const findTolHeader=(metricKey)=>{
+    const aliases = COLUMN_MAP[metricKey] || [];
+    const candNames = [];
+    aliases.forEach(a=>{ candNames.push(`${a} Tolerance`, `${a} Tol`); });
+    const metric = METRICS.find(m=>m.key===metricKey);
+    if(metric){ candNames.push(`${metric.label} Tolerance`, `${metric.label} Tol`); }
+    for(const tryName of candNames){
+      const ak = normKey(tryName);
+      for(const h of headers){
+        if(normKey(h) === ak) return String(h).trim();
+      }
+    }
+    return null;
+  };
+
+  const metricKeys = ["gsm","thickness","bulk","dry_md","dry_cd","dry_md_cd_ratio","stretch","wet_strength","wet_dry_ratio","brightness","length"];
+  const colByMetric={}, tolByMetric={};
+  metricKeys.forEach(k=>{ colByMetric[k]=findHeaderForMetric(k); tolByMetric[k]=findTolHeader(k); });
+
+  const maps={qual_label:new Map(),qual_num:new Map(),label_only:new Map(),num_only:new Map()}, list=[];
+  const round2 = x => Math.round(Number(x)*100)/100;
+
+  for(const r of specRows){
+    const qRaw=qCol?String(r[qCol]??"").trim():"NA"; const qNorm=normKey(qRaw);
+    const labelRaw=r[gpCol]; const labelNorm=normGsmPlyLabel(labelRaw);
+    const m=String(labelRaw??"").replace(",",".").match(/[-+]?\d*\.?\d+/); const gsmNum=m?round2(m[0]):null;
+
+    const obj={__q:qRaw,__qNorm:qNorm,__label:String(labelRaw??"").trim(),__labelNorm:labelNorm,__gsmNum:gsmNum};
+    for(const [k,col] of Object.entries(colByMetric)){ if(!col) continue; const v=r[col]; if(v==null||String(v).trim()==="") continue; obj[k]=String(v).trim(); }
+    for(const [k,colTol] of Object.entries(tolByMetric)){ if(!colTol) continue; const v=r[colTol]; if(v==null||String(v).trim()==="") continue; obj[k+"_tol"]=String(v).trim(); }
+
+    list.push(obj);
+    if(labelNorm) maps.qual_label.set(`${qNorm}||${labelNorm}`,obj);
+    if(gsmNum!=null) maps.qual_num.set(`${qNorm}||${gsmNum}`,obj);
+    if(labelNorm && !maps.label_only.has(labelNorm)) maps.label_only.set(labelNorm,obj);
+    if(gsmNum!=null && !maps.num_only.has(gsmNum)) maps.num_only.set(gsmNum,obj);
+  }
+  return {maps,list};
+}
+
+function prepareRows(rows,dateFmt,rewLabel,fromStr,toStr){
+  if(!rows||!rows.length) return [];
+  const headers=Object.keys(rows[0]).map(normalizeHeader);
+  headerBinding=bindHeaders(headers);
+  const hdrPrev=$("#headerPreview");
+  if(hdrPrev) hdrPrev.textContent = Object.entries(headerBinding).map(([k,v])=>`${k} ← ${v}`).join("\n") || "(no headers found)";
+
+  const out=[];
+  for(const r0 of rows){
+    const r={}; for(const [k,v] of Object.entries(r0)) r[normalizeHeader(k)]=v;
+
+    const d=parseDate(val(r,"date"),dateFmt); if(!d) continue;
+    if(!inDateRange(d,fromStr,toStr)) continue;
+    const dateKey=ymdUTC(d);
+
+    const q=val(r,"quality"); const quality=(q==null||q==="")?"NA":String(q).trim();
+
+    let gpCell=val(r,"gsm_ply"); if(gpCell==null||gpCell==="") gpCell=val(r,"gsm");
+    const gsmPlyLabel=gpCell!=null?String(gpCell).trim():"";
+    const gsmPlyLabelNorm=normGsmPlyLabel(gsmPlyLabel);
+    const gsmPlyNum=firstNumber(gpCell); if(gsmPlyNum==null) continue;
+
+    METRICS.forEach(m=>{ if(!m.compute) return; const actual=headerBinding[m.key]||m.key; const curr=r[actual]; if(curr==null||curr===""){ const c=m.compute(r); if(c!=null) r[actual]=c; }});
+    const metrics={}; METRICS.forEach(m=>{ const src=headerBinding[m.key]||m.key; metrics[m.key]=num(firstNumber(r[src])); });
+
+    out.push({_date:dateKey,_quality:quality,_gsm_ply_num:gsmPlyNum,_gsm_ply_label:gsmPlyLabel,_gsm_ply_label_norm:gsmPlyLabelNorm,_rew:rewLabel,...metrics});
+  }
+  return out;
+}
+function aggregate(rows){
+  const groups = new Map();
+  for (const r of rows){
+    // ✅ use label norm first, fall back to number if missing
+    const lab = (r._gsm_ply_label_norm || '').trim();
+    const gsKey = lab || String(r._gsm_ply_num);
+    const key = `${r._date}||${r._rew}||${r._quality}||${gsKey}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+
+  const out = [];
+  for (const [key, arr] of groups){
+    const [date, rew, quality, _gsKey] = key.split("||");
+
+    // keep both numeric and label for display/sort
+    const label = arr.map(a => a._gsm_ply_label)
+                     .find(s => s != null && String(s).trim() !== "") || "";
+    const gsmNum = Number.isFinite(arr[0]._gsm_ply_num) ? arr[0]._gsm_ply_num : null;
+
+    const row = {
+      Date: date,
+      Rewinder: rew,
+      Quality: quality,
+      "GSM/Ply": gsmNum,               // numeric (may be null)
+      "GSM/Ply Label": label || _gsKey // show real label; fallback to key
+    };
+
+    METRICS.forEach(m=>{
+      const vals = arr
+        .map(a => a[m.key])
+        .map(v => (v === "" || v == null ? null : Number(v)))
+        .filter(v => Number.isFinite(v) && v !== 0);
+
+      if (!vals.length){
+        row[`${m.label} (Min)`] = "";
+        row[`${m.label} (Max)`] = "";
+        row[`${m.label} (Avg)`] = "";
+      } else {
+        const min = Math.min(...vals);
+        const max = Math.max(...vals);
+        const avg = vals.reduce((a,b)=>a+b,0) / vals.length;
+        row[`${m.label} (Min)`] = fmt1(min);
+        row[`${m.label} (Max)`] = fmt1(max);
+        row[`${m.label} (Avg)`] = fmt1(avg);
+      }
+    });
+
+    out.push(row);
+  }
+
+  // ✅ sort by Quality, then GSM number, then label to keep 19/1 vs 19/2 separate
+  out.sort((a,b)=>{
+    if (a.Date !== b.Date) return a.Date < b.Date ? -1 : 1;
+    if (a.Rewinder !== b.Rewinder) return String(a.Rewinder).localeCompare(String(b.Rewinder));
+    if (a.Quality !== b.Quality) return String(a.Quality).localeCompare(String(b.Quality));
+    const numCmp = (a["GSM/Ply"] ?? Infinity) - (b["GSM/Ply"] ?? Infinity);
+    if (numCmp !== 0) return numCmp;
+    return String(a["GSM/Ply Label"]||"").localeCompare(String(b["GSM/Ply Label"]||""), undefined, {numeric:true});
+  });
+
+  return out;
+}
+
+function attachSpecs(rows,specObj){
+  const empty=()=>new Map();
+  const raw=(specObj&&specObj.maps)?specObj.maps:{};
+  const maps={
+    qual_label:raw.qual_label instanceof Map?raw.qual_label:empty(),
+    qual_num:raw.qual_num instanceof Map?raw.qual_num:empty(),
+    label_only:raw.label_only instanceof Map?raw.label_only:empty(),
+    num_only:raw.num_only instanceof Map?raw.num_only:empty()
+  };
+  const round2 = x => Math.round(Number(x)*100)/100;
+
+  return rows.map(r=>{
+    const qNorm=normKey(r.Quality);
+    const labelStr=r["GSM/Ply Label"]||r["GSM/Ply"];
+    const labelNorm=normGsmPlyLabel(labelStr);
+    const gsmNum=round2(r["GSM/Ply"]);
+
+    const hit=maps.qual_label.get(`${qNorm}||${labelNorm}`)
+          ||maps.qual_num.get(`${qNorm}||${gsmNum}`)
+          ||maps.label_only.get(labelNorm)
+          ||maps.num_only.get(gsmNum);
+    if(!hit) return r;
+    const out={...r};
+    for(const m of METRICS){
+      const sv=hit[m.key]; if(sv!=null) out[`${m.label} (Spec)`]=sv;
+      const tv=hit[m.key+"_tol"]; if(tv!=null) out[`${m.label} (Tol)`]=tv;
+    }
+    return out;
+  });
+}
+
+/* ---------- Render Report (vertical) ---------- */
+let LAST_ROWS = [];
+
+function renderVertical(rows){
+  LAST_ROWS = rows || [];
+  const root=$("#results"); if(root) root.innerHTML="";
+  if(!rows||!rows.length){ if(root) root.textContent="No rows (check date filter or headers)."; return; }
+
+  const byDate=new Map();
+  rows.forEach(r=>{
+    if(!byDate.has(r.Date)) byDate.set(r.Date,new Map());
+    const m=byDate.get(r.Date);
+    if(!m.has(r.Rewinder)) m.set(r.Rewinder,[]);
+    m.get(r.Rewinder).push(r);
+  });
+
+  const exportRows=[];
+  for(const [date,rwMap] of byDate){
+    const dateEl=document.createElement("div"); dateEl.className="dateHead"; dateEl.textContent=date; root.appendChild(dateEl);
+    const rwKeys=[...rwMap.keys()].sort((a,b)=>String(a).localeCompare(String(b)));
+
+    for(const rw of rwKeys){
+      const rwHead=document.createElement("div"); rwHead.className="rewHead"; rwHead.textContent=rw; root.appendChild(rwHead);
+
+      const items=rwMap.get(rw).slice().sort((a,b)=>{ if(a.Quality!==b.Quality) return String(a.Quality).localeCompare(String(b.Quality)); return a["GSM/Ply"]-b["GSM/Ply"]; });
+
+      for(const g of items){
+        const label=g["GSM/Ply Label"]||g["GSM/Ply"];
+        const qgp=document.createElement("div"); qgp.className="qgpHead"; qgp.textContent=`${g.Quality} – ${label}`; root.appendChild(qgp);
+
+        const table=document.createElement("table"); table.className="report-table";
+        const thead=document.createElement("thead");
+        const htr=document.createElement("tr");
+        ["Metric","Spec","Min","Max","Avg"].forEach(h=>{ const th=document.createElement("th"); th.textContent=h; htr.appendChild(th); });
+        thead.appendChild(htr); table.appendChild(thead);
+
+        const tbody=document.createElement("tbody");
+        METRICS.forEach(m=>{
+          const tr=document.createElement("tr");
+          const spec=g[`${m.label} (Spec)`]??"";
+          const min =g[`${m.label} (Min)`]??"";
+          const max =g[`${m.label} (Max)`]??"";
+          const avg =g[`${m.label} (Avg)`]??"";
+
+          const nameTd=document.createElement("td"); nameTd.textContent=m.label; tr.appendChild(nameTd);
+          const tdSpec=document.createElement("td"); tdSpec.textContent=(spec==null?"":spec); tr.appendChild(tdSpec);
+          const tdMin=document.createElement("td");  tdMin.classList.add("right"); tdMin.textContent=(min==null?"":min); tr.appendChild(tdMin);
+          const tdMax=document.createElement("td");  tdMax.classList.add("right"); tdMax.textContent=(max==null?"":max); tr.appendChild(tdMax);
+          const tdAvg=document.createElement("td");  tdAvg.classList.add("right"); tdAvg.textContent=(avg==null?"":avg);
+          tr.appendChild(tdAvg);
+
+          tbody.appendChild(tr);
+
+          exportRows.push({Date:g.Date,Rewinder:g.Rewinder,Quality:g.Quality,"GSM/Ply Label":label,Metric:m.label,Spec:spec,Min:min,Max:max,Avg:avg});
+        });
+        table.appendChild(tbody);
+        root.appendChild(table);
+      }
+    }
+  }
+
+  const hasData = Boolean(exportRows.length);
+  const csvBtn=$("#dlCsvBtn"), xlsBtn=$("#dlXlsxBtn"), trendBtn=$("#trendsBtn"), coaBtn=$("#dlCoaPdfBtn");
+  if(csvBtn) csvBtn.disabled=!hasData;
+  if(xlsBtn) xlsBtn.disabled=!hasData;
+  if(trendBtn) trendBtn.disabled=false;
+  if(coaBtn)  coaBtn.disabled=!hasData;
+
+  if(csvBtn){
+    csvBtn.onclick=()=>{
+      if(!exportRows.length){ alert("Nothing to export."); return; }
+      const rows=exportRows, headers=Object.keys(rows[0]||{});
+      const esc=s=>{ const v=s==null?"":String(s); return /[,"\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v; };
+      const csv=[headers.join(","),...rows.map(r=>headers.map(h=>esc(r[h])).join(","))].join("\n");
+      const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const a=Object.assign(document.createElement("a"),{href:url,download:"Rewinder_Daily_Report_Specs_MinMaxAvg.csv", rel:"noopener"});
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    };
+  }
+
+  if(xlsBtn){
+    xlsBtn.onclick=()=>{
+      if(!exportRows.length){ alert("Nothing to export."); return; }
+      const ws=XLSX.utils.json_to_sheet(exportRows); const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,"Report"); XLSX.writeFile(wb,"Rewinder_Daily_Report_Specs_MinMaxAvg.xlsx");
+    };
+  }
+}
+
+/* ===================== TRENDS (INDEPENDENT) ===================== */
+let TREND_ROWS = { 'Rewinder-1': [], 'Rewinder-2': [] };
+
+function prepareTrendRows(rows, dateFmt, rewLabel){
+  if(!rows||!rows.length) return [];
+  const headers=Object.keys(rows[0]).map(normalizeHeader);
+  headerBinding=bindHeaders(headers);
+
+  const out=[];
+  for(const r0 of rows){
+    const r={}; for(const [k,v] of Object.entries(r0)) r[normalizeHeader(k)]=v;
+
+    const d=parseDate(val(r,"date"),dateFmt); if(!d) continue;
+    const dateKey=ymdUTC(d);
+
+    const q=val(r,"quality"); const quality=(q==null||q==="")?"NA":String(q).trim();
+
+    let gpCell=val(r,"gsm_ply"); if(gpCell==null||gpCell==="") gpCell=val(r,"gsm");
+    const gsmLabel = gpCell!=null?String(gpCell).trim():"";
+    const gsmNorm  = normGsmPlyLabel(gsmLabel);
+    const gsmNum   = firstNumber(gpCell); if(gsmNum==null) continue;
+
+    const rec = { Date:dateKey, Rewinder:rewLabel, Quality:quality, GSMLabel:gsmLabel, GSMNorm:gsmNorm, GSMNum:gsmNum };
+    METRICS.forEach(m=>{
+      const src = headerBinding[m.key] || m.key;
+      let v = firstNumber(r[src]);
+      if(v==null && m.compute){
+        const wrap = k => { const kk = headerBinding[k] || k; return firstNumber(r[kk]); };
+        v = m.compute({ [headerBinding['dry_md']||'dry_md']: wrap('dry_md'),
+                        [headerBinding['dry_cd']||'dry_cd']: wrap('dry_cd'),
+                        [headerBinding['wet_strength']||'wet_strength']: wrap('wet_strength') });
+      }
+      rec[m.label] = num(v);
+    });
+    out.push(rec);
+  }
+  return out;
+}
+
+let trendChart = null;
+const TrendState = { period:'weekly', type:'line', maOn:false, clOn:false, metrics:[] };
+
+if (window.Chart && window.ChartDataLabels) { Chart.register(window.ChartDataLabels); }
+
+const LABEL_TO_KEY = {};
+const METRIC_LABELS = METRICS.map(m => (LABEL_TO_KEY[m.label]=m.key, m.label));
+const $T = (sel)=>document.querySelector(sel);
+function uniq(arr){ return [...new Set(arr)]; }
+
+/* --- Date helpers for Trend --- */
+function parseDMY(s){
+  if(!s) return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m) return null;
+  const d = parseInt(m[1],10), mo = parseInt(m[2],10)-1, y = parseInt(m[3],10);
+  const dt = new Date(Date.UTC(y,mo,d));
+  return isNaN(dt)?null:dt;
+}
+function fmtDMY(dt){
+  const dd=String(dt.getUTCDate()).padStart(2,'0');
+  const mm=String(dt.getUTCMonth()+1).padStart(2,'0');
+  return `${dd}/${mm}/${dt.getUTCFullYear()}`;
+}
+function ymdToDate(s){
+  const [y,m,d] = s.split("-").map(n=>parseInt(n,10));
+  return new Date(Date.UTC(y,m-1,d));
+}
+function startOfWeekISO(d){
+  const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dow = (day.getUTCDay()||7);
+  day.setUTCDate(day.getUTCDate() - (dow-1));
+  return day;
+}
+function weekKey(d){
+  const start = startOfWeekISO(d);
+  const y = start.getUTCFullYear();
+  const m = String(start.getUTCMonth()+1).padStart(2,'0');
+  const dd= String(start.getUTCDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+function monthKey(d){ return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-01`; }
+function weekOfMonthLabelFromYMD(ymd){
+  const d = ymdToDate(ymd);
+  const monthName = d.toLocaleString('en-US', {month:'long'});
+  const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+  const firstWeekStart = startOfWeekISO(first);
+  const currWeekStart  = startOfWeekISO(d);
+  const diffDays = Math.round((currWeekStart - firstWeekStart)/86400000);
+  const weekIdx = Math.floor(diffDays/7) + 1;
+  return `${monthName}-W${weekIdx}`;
+}
+function friendlyLabel(ymd, period){
+  if (period === 'weekly')  return weekOfMonthLabelFromYMD(ymd);
+  if (period === 'monthly'){
+    const d = ymdToDate(ymd);
+    return d.toLocaleString('en-US', {month:'long'});
+  }
+  const d = ymdToDate(ymd);
+  return d.toLocaleDateString('en-GB');
+}
+function inRangeByDMYLabel(ymd, startDMY, endDMY){
+  const d = ymdToDate(ymd);
+  const s = parseDMY(startDMY);
+  const e = parseDMY(endDMY);
+  if(s && d < s) return false;
+  if(e && d > e) return false;
+  return true;
+}
+function periodKeyFor(dateYMD, period){
+  const d = ymdToDate(dateYMD);
+  if(period==='weekly')  return weekKey(d);
+  if(period==='monthly') return monthKey(d);
+  return dateYMD;
+}
+
+/* ----- Trend selectors ----- */
+function populateTrendSelectors(){
+  const rSel = $T("#trendRew");
+  const qSel = $T("#trendQuality");
+  const gSel = $T("#trendGsm");
+
+  if(!rSel || !qSel || !gSel) return;
+
+  rSel.innerHTML = ['Rewinder-1','Rewinder-2','All Rewinders'].map(r=>`<option>${r}</option>`).join("");
+  rSel.value = 'Rewinder-2';
+
+  const currentRows = ()=>{
+    const rw = rSel.value;
+    if(rw === 'All Rewinders'){
+      return [...TREND_ROWS['Rewinder-1'], ...TREND_ROWS['Rewinder-2']];
+    }
+    return TREND_ROWS[rw] || [];
+  };
+
+  const refreshGsm = ()=>{
+    const rows = currentRows().filter(r=>r.Quality === qSel.value);
+    const byNorm = new Map();
+    rows.forEach(r=>{
+      const n = r.GSMNorm;
+      if(n && !byNorm.has(n)) byNorm.set(n, r.GSMLabel);
+    });
+    gSel.innerHTML = "";
+    Array.from(byNorm.entries())
+      .sort((a,b)=> String(a[1]).localeCompare(String(b[1]), undefined, {numeric:true}))
+      .forEach(([norm, label])=>{
+        const o = document.createElement("option");
+        o.value = label;
+        o.textContent = label;
+        o.dataset.norm = norm;
+        gSel.appendChild(o);
+      });
+    refreshSummary();
+  };
+
+  const refreshQuality = ()=>{
+    const rows = currentRows();
+    const qualities = uniq(rows.map(r=>r.Quality))
+      .sort((a,b)=>String(a).localeCompare(String(b)));
+    qSel.innerHTML = qualities.map(q=>`<option>${q}</option>`).join("");
+    refreshGsm();
+  };
+
+  rSel.onchange = ()=>{ refreshQuality(); };
+  qSel.onchange  = ()=>{ refreshGsm(); };
+  gSel.onchange  = ()=>{ refreshSummary(); };
+
+  refreshQuality();
+  buildMetricChips();
+}
+
+/* ---- Metric chips (multi-select up to 4) ---- */
+function buildMetricChips(){
+  const box = $T("#metricChips");
+  const counter = $T("#metricCount");
+  if(!box || !counter) return;
+
+  box.innerHTML = "";
+
+  if(!Array.isArray(TrendState.metrics) || !TrendState.metrics.length){
+    const def = METRIC_LABELS.find(l => /dry tensile md/i.test(l)) || METRIC_LABELS[0];
+    TrendState.metrics = [def];
+  }
+
+  const limit = 4;
+  const setCounter = ()=> counter.textContent = `${TrendState.metrics.length}/${limit}`;
+
+  METRIC_LABELS.forEach(l=>{
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (TrendState.metrics.includes(l) ? ' active' : '');
+    btn.textContent = l.toUpperCase();
+    btn.dataset.label = l;
+    btn.onclick = ()=>{
+      const isOn = btn.classList.contains('active');
+      if(isOn){
+        btn.classList.remove('active');
+        TrendState.metrics = TrendState.metrics.filter(x=>x!==l);
+      }else{
+        if(TrendState.metrics.length >= limit){
+          alert(`You can compare up to ${limit} metrics at once.`);
+          return;
+        }
+        btn.classList.add('active');
+        TrendState.metrics.push(l);
+      }
+      setCounter();
+    };
+    box.appendChild(btn);
+  });
+  setCounter();
+}
+
+/* helper: normalized gsm currently selected */
+function selectedGsmNorm(){
+  const gSel = $T("#trendGsm");
+  const opt = gSel && gSel.options[gSel.selectedIndex];
+  return opt ? (opt.dataset.norm || normGsmPlyLabel(opt.value)) : "";
+}
+
+/* rows for current selection */
+function rowsForTrendSelection(){
+  const rw = $T("#trendRew")?.value;
+  const q  = $T("#trendQuality")?.value;
+  const gsmNorm = selectedGsmNorm();
+  const s = $T("#trendStart")?.value;
+  const e = $T("#trendEnd")?.value;
+
+  const all = (rw==='All Rewinders')
+    ? [...(TREND_ROWS['Rewinder-1']||[]), ...(TREND_ROWS['Rewinder-2']||[])]
+    : (TREND_ROWS[rw] || []);
+
+  return all.filter(r =>
+    r.Quality === q &&
+    r.GSMNorm === gsmNorm &&
+    inRangeByDMYLabel(r.Date, s, e)
+  );
+}
+
+function refreshSummary(){
+  const rw = $T("#trendRew")?.value || '';
+  const q  = $T("#trendQuality")?.value || '';
+  const gsmLabel = $T("#trendGsm")?.value || "";
+  const rows = rowsForTrendSelection();
+  const el = $T("#trendSummary");
+  if(el) el.textContent = `Analyzing ${rows.length} records with quality: ${q} with GSM: ${gsmLabel}${rw==="All Rewinders"?"":" on "+rw}`;
+}
+
+/* Plot (supports up to 4 metrics) */
+const plotBtn = document.getElementById("plotTrendBtn");
+if(plotBtn){
+  plotBtn.addEventListener("click", ()=>{
+    const baseRows = rowsForTrendSelection();
+    if(!baseRows.length){
+      const hint=$T("#trendHint"); if(hint) hint.textContent = "No data for that selection / date range.";
+      if(trendChart) trendChart.destroy();
+      return;
+    }
+
+    const per       = TrendState.period || 'weekly';
+    const chartType = TrendState.type   || 'line';
+    const metrics   = (TrendState.metrics && TrendState.metrics.length) ? TrendState.metrics.slice(0,4) : ['Dry Tensile MD'];
+
+    const bucketKeysAsc = [...new Set(baseRows.map(r => periodKeyFor(r.Date, per)))]
+      .sort((a,b)=> String(a).localeCompare(String(b), undefined, {numeric:true}));
+
+    const series = metrics.map(metricLabel=>{
+      const avgByBucket = bucketKeysAsc.map(bucket => {
+        const rowsHere = baseRows.filter(r => periodKeyFor(r.Date, per)===bucket);
+        const vals = rowsHere
+          .map(r => parseFloat(r[metricLabel] || ""))
+          .filter(Number.isFinite);
+        if(!vals.length) return null;
+        return +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+      });
+      return {label: metricLabel, data: avgByBucket};
+    });
+
+    const N = 10;
+    const labelsPrettyAsc = bucketKeysAsc.map(k => friendlyLabel(k, per));
+    const labels = labelsPrettyAsc.slice(-N).reverse();
+
+    const darkPalette = [
+  '#e53935', '#43a047', '#fdd835', '#1e88e5'
+]; // up to 4 metrics (dark colors)
+
+const COLORS = ['#e53935', '#43a047', '#fdd835', '#1e88e5'];
+
+// Decide which axis a metric should use
+const RIGHT_AXIS_METRICS = new Set([
+  'MD/CD (Dry)', 'Bulk', 'GSM', 'Thickness', 'Stretch / Elongation %', 'Brightness', 'Length'
+]);
+
+const datasets = series.map((s, idx) => {
+  const color = COLORS[idx % COLORS.length];
+  const isRight = RIGHT_AXIS_METRICS.has(s.label);
+
+  return {
+    label: s.label,
+    data: s.data.slice(-N).reverse(),
+    barPercentage: 0.6,
+    categoryPercentage: 0.7,
+    borderColor: color,
+    backgroundColor: chartType === 'bar' ? color + 'cc' : color,
+    borderWidth: 2,
+    tension: 0.3,
+    fill: false,
+    pointRadius: 4,
+    pointHoverRadius: 5,
+    pointBackgroundColor: color,
+    yAxisID: isRight ? 'y2' : 'y'
+  };
+});
+    const todayStr = new Date().toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'});
+    const rw  = $T("#trendRew")?.value || '';
+    const q   = $T("#trendQuality")?.value || '';
+    const gsm = $T("#trendGsm")?.value || "";
+    const subtitle = `Metrics: ${metrics.join(', ')}  •  View: ${per.charAt(0).toUpperCase()+per.slice(1)}  •  Rewinder: ${rw}  •  Quality: ${q}  •  GSM: ${gsm}`;
+    const hint=$T("#trendHint"); if(hint) hint.textContent = subtitle;
+
+    const ctx = document.getElementById('trendCanvas')?.getContext('2d');
+    if(!ctx) return;
+    if(trendChart) trendChart.destroy();
+
+    const flatVals = datasets.flatMap(d => d.data).filter(v => v!=null);
+    const sugMax = Math.max((Math.max(...flatVals)||0) + 1, 5);
+
+    trendChart = new Chart(ctx, {
+      type: chartType,
+      data: { labels, datasets },
+      options: {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    title: {
+      display: true,
+      text: `Trend Analysis - ${todayStr}`,
+      padding: { bottom: 8 },
+      font: { size: 16, weight: 'bold' },
+      color: '#111' // darker title
+    },
+    legend: {
+      position: 'bottom',
+      labels: { color: '#111', font: { weight: '600' } } // darker legend
+    },
+    tooltip: { mode: 'index', intersect: false },
+    datalabels: {
+      display: true,
+      anchor: 'end',
+      align: 'start',
+      offset: 2,
+      // darker, bold data labels
+      color: '#222',
+      font: { weight: '700' },
+      formatter: (v) => (v == null ? '' : (typeof v === 'number' ? v.toFixed(1) : v)),
+      clip: false
+    }
+  },
+  scales: {
+    x: {
+      stacked: false,
+      ticks: { color: '#111' },
+      grid: { color: '#ddd' }
+    },
+    // Left axis: high-range (Tensiles, etc.)
+    y: {
+      beginAtZero: true,
+      suggestedMax: sugMax, // you already compute this from visible data
+      ticks: { color: '#111' },
+      grid: { color: '#e0e0e0' },
+      title: { display: true, text: 'High-range metrics', color: '#111', font: { weight: '600' } }
+    },
+    // Right axis: low-range (ratio, bulk, gsm, etc.)
+    y2: {
+      position: 'right',
+      beginAtZero: true,
+      // auto-suggest a reasonable max based on right-axis datasets
+      suggestedMax: (() => {
+        const rightVals = datasets
+          .filter(d => d.yAxisID === 'y2')
+          .flatMap(d => d.data)
+          .filter(v => v != null);
+        if (!rightVals.length) return 10;
+        const m = Math.max(...rightVals);
+        // pad a bit so labels don't touch the top
+        return Math.ceil(m * 1.2);
+      })(),
+      grid: { drawOnChartArea: false }, // keep chart clean
+      ticks: { color: '#111' },
+      title: { display: true, text: 'Low-range metrics', color: '#111', font: { weight: '600' } }
+    }
+  }
+}
+});
+  });
+}
+/* ------------ Main (load + generate) ------------- */
+function restoreUIFromPrefs(){
+  const p = loadPrefs();
+  if(p.rew1Sel) $("#rew1Sel").value = p.rew1Sel;
+  if(p.rew2Sel) $("#rew2Sel").value = p.rew2Sel;
+  if(p.specSel) $("#specSel").value = p.specSel;
+  if(p.dateFormat) $("#dateFormat").value = p.dateFormat;
+  if(p.fromDate) $("#fromDate").value = p.fromDate;
+  if(p.toDate) $("#toDate").value = p.toDate;
+}
+
+const fileInput=document.getElementById("fileInput");
+if(fileInput){
+  fileInput.addEventListener("change", async (e)=>{
+    updateStatus("loading…");
+    const file=e.target.files[0]; if(!file) return;
+
+    const badExt=/\.(html?|htm|txt|csv|json)$/i.test(file.name);
+    if(badExt){
+      updateStatus("error");
+      alert("This is not an Excel file: " + file.name + "\nPlease select your .xlsx or .xlsm workbook.");
+      return;
+    }
+
+    let data; try{ data=await file.arrayBuffer(); }catch(err){ updateStatus("error"); alert("Could not read the file: "+file.name); console.error(err); return; }
+    try{ workbook=XLSX.read(data,{type:"array"}); }catch(err){ updateStatus("error"); alert("The selected file is not a valid Excel workbook.\nSelected: "+file.name); console.error(err); return; }
+
+    const names=workbook.SheetNames||[];
+    const hint = document.getElementById("sheetHint");
+    if(hint) hint.textContent=names.length?`Found ${names.length} sheets`:"No sheets found.";
+    ["#rew1Sel","#rew2Sel","#specSel"].forEach(sel=>{
+      const el=document.querySelector(sel); if(!el) return;
+      el.innerHTML="";
+      names.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.textContent=n; el.appendChild(o); });
+    });
+
+    const guess=subs=>names.find(n=>subs.some(s=>n.toLowerCase().includes(s)));
+    const r1=guess(["rewinder 1","rewinder-1","rew1","rw1","rewinder1"]);
+    const r2=guess(["rewinder 2","rewinder-2","rew2","rw2","rewinder2"]);
+    const sp=guess(["spec","specs","specification"]);
+    if(r1) $("#rew1Sel").value=r1;
+    if(r2) $("#rew2Sel").value=r2;
+    if(sp) $("#specSel").value=sp;
+
+    const sels=document.getElementById("sheetSelectors");
+    if(sels) sels.style.display="grid";
+    restoreUIFromPrefs();
+    updateStatus("ready");
+
+    /* Build TREND_ROWS immediately so Trends is independent of Generate */
+    try {
+      const dateFmt = document.getElementById("dateFormat").value || "";
+      const r1Name = document.getElementById("rew1Sel").value;
+      const r2Name = document.getElementById("rew2Sel").value;
+
+      TREND_ROWS['Rewinder-1'] = prepareTrendRows(sheetToRows(r1Name), dateFmt, 'Rewinder-1');
+      TREND_ROWS['Rewinder-2'] = prepareTrendRows(sheetToRows(r2Name), dateFmt, 'Rewinder-2');
+
+      const trendsBtn=document.getElementById("trendsBtn");
+      if(trendsBtn) trendsBtn.disabled = false;
+    } catch (err) {
+      console.warn('Trend rows build failed:', err);
+      const trendsBtn=document.getElementById("trendsBtn");
+      if(trendsBtn) trendsBtn.disabled = true;
+    }
+  });
+}
+
+const genBtn=document.getElementById("genBtn");
+if(genBtn){
+  genBtn.addEventListener("click", ()=>{
+    try{
+      if(!workbook){ alert("Upload an Excel workbook first."); return; }
+      updateStatus("processing…");
+
+      const rew1=$("#rew1Sel")?.value;
+      const rew2=$("#rew2Sel")?.value;
+      const spec=$("#specSel")?.value||null;
+      const dateFmt=$("#dateFormat")?.value;
+      const fromStr=$("#fromDate")?.value;
+      const toStr=$("#toDate")?.value;
+
+      if(!rew1||!rew2){ alert("Select both Rewinder sheets."); updateStatus("error"); return; }
+      if(!spec){ alert("Select the Specs sheet."); updateStatus("error"); return; }
+
+      savePrefs({rew1Sel:rew1, rew2Sel:rew2, specSel:spec, dateFormat:dateFmt, fromDate:fromStr, toDate:toStr});
+
+      const r1=prepareRows(sheetToRows(rew1),dateFmt,"Rewinder-1",fromStr,toStr);
+      const r2=prepareRows(sheetToRows(rew2),dateFmt,"Rewinder-2",fromStr,toStr);
+      const combined=[...r1,...r2];
+      if(!combined.length){ const res=document.getElementById("results"); if(res) res.textContent="No rows (check filters/headers)."; updateStatus("done"); return; }
+
+      const agg=aggregate(combined);
+      const specObj=buildSpecsMap(sheetToRows(spec));
+      const withSpecs=attachSpecs(agg,specObj);
+
+      renderVertical(withSpecs);
+      updateStatus("done");
+    }catch(err){
+      console.error(err);
+      updateStatus("error");
+      alert("Error while generating report:\n"+err.message);
+    }
+  });
+}
+
+/* Trends toggle */
+const trendsBtn=document.getElementById("trendsBtn");
+if(trendsBtn){
+  trendsBtn.addEventListener("click", ()=>{
+    if(!(TREND_ROWS['Rewinder-1']||[]).length && !(TREND_ROWS['Rewinder-2']||[]).length){
+      alert("Upload an Excel workbook first.");
+      return;
+    }
+    const panel = document.getElementById("trendPanel");
+    const show = getComputedStyle(panel).display === "none";
+    panel.style.display = show ? "block" : "none";
+    if(show){
+      populateTrendSelectors();
+      bindSegControls();
+      document.querySelector('.trend-quick button[data-q="30"]')?.click(); // last 30 days default
+      const hint=$T("#trendHint"); if(hint) hint.textContent = "Pick dates, Rewinder, Quality/GSM, and metrics (up to 4), then Plot.";
+      TrendState.period='weekly'; TrendState.type='line';
+      $T('#trendPeriodSeg [data-p="weekly"]')?.click();
+      $T('#trendTypeSeg [data-t="line"]')?.click();
+    }
+  });
+}
+
+/* Switch handlers */
+function bindSegControls(){
+  const ps = $T("#trendPeriodSeg");
+  if(ps){
+    ps.addEventListener('click', (e)=>{
+      const b = e.target.closest('button'); if(!b) return;
+      ps.querySelectorAll('button').forEach(x=>x.classList.toggle('active', x===b));
+      TrendState.period = b.dataset.p;
+    });
+  }
+  const ts = $T("#trendTypeSeg");
+  if(ts){
+    ts.addEventListener('click', (e)=>{
+      const b = e.target.closest('button'); if(!b) return;
+      ts.querySelectorAll('button').forEach(x=>x.classList.toggle('active', x===b));
+      TrendState.type = b.dataset.t;
+    });
+  }
+
+  document.querySelectorAll('.trend-quick button').forEach(btn=>{
+    btn.onclick = ()=>{
+      const t = btn.dataset.q;
+      const now = new Date();
+      const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      let s, e;
+      if(t==='today'){ s=e=today; }
+      else if(t==='yesterday'){ e=new Date(today); e.setUTCDate(e.getUTCDate()-1); s=e; }
+      else if(t==='7'){ e=today; s=new Date(today); s.setUTCDate(s.getUTCDate()-6); }
+      else if(t==='30'){ e=today; s=new Date(today); s.setUTCDate(s.getUTCDate()-29); }
+      else if(t==='thisMonth'){ e=today; s=new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)); }
+      else if(t==='lastMonth'){
+        const first = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+        e = new Date(first); e.setUTCDate(e.getUTCDate()-1);
+        s = new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth(), 1));
+      }
+      $T("#trendStart").value = fmtDMY(s);
+      $T("#trendEnd").value   = fmtDMY(e);
+      refreshSummary();
+    };
+  });
+}
+
+/* ===================== COA (Certificate of Analysis) ===================== */
+/* Group LAST_ROWS by (Quality, GSM Label) for a given date */
+function groupCoaByQG(dateYMD){
+  const rows = (LAST_ROWS||[]).filter(r => r.Date === dateYMD);
+  const map = new Map();
+  rows.forEach(r=>{
+    const q = r.Quality || 'NA';
+    const qNorm = q.trim().toLowerCase();
+    const gsmLabel = r["GSM/Ply Label"] || r["GSM/Ply"] || '';
+    const gsmNorm  = normGsmPlyLabel(gsmLabel);
+    const key = `${qNorm}||${gsmNorm}`;
+    if(!map.has(key)){
+      map.set(key, {quality:q, gsmLabel, gsmNorm, byRew:{}});
+    }
+    map.get(key).byRew[r.Rewinder] = r;
+  });
+  return [...map.values()].sort((a,b)=>{
+    if(a.quality!==b.quality) return String(a.quality).localeCompare(String(b.quality));
+    return String(a.gsmLabel).localeCompare(String(b.gsmLabel), undefined, {numeric:true});
+  });
+}
+
+/* Build one A4 page for a single Quality × GSM showing both rewinders + Overall Avg
+   (fixed layout, wide Overall column, address line under title) */
+function buildCoaPage(quality, gsmLabel, dateYMD, r1, r2){
+  const page = document.createElement('div');
+  page.className = 'coa-page';
+  page.style.width = '794px';   /* A4 portrait @ ~96dpi */
+  page.style.minHeight = '1123px';
+  page.style.boxSizing = 'border-box';
+  page.style.padding = '18px';
+  page.style.display = 'flex';
+  page.style.flexDirection = 'column';
+  page.style.background = '#fff';
+  page.style.color = '#111';
+
+  /* Header */
+  const header = document.createElement('div');
+  header.style.display = 'grid';
+  header.style.gridTemplateColumns = '150px 1fr 170px';
+  header.style.alignItems = 'center';
+  header.style.columnGap = '20px';
+  header.style.borderBottom = '2px solid #e6e6e6';
+  header.style.paddingBottom = '8px';
+
+  const logo = document.getElementById('logoImg').cloneNode(true);
+  logo.style.width = '150px';
+  logo.style.height = '150px';
+  logo.style.objectFit = 'contain';
+  header.appendChild(logo);
+
+  const mid = document.createElement('div');
+  const title = document.createElement('div');
+  title.textContent = 'GAYATRISHAKTI TISSUE';
+  title.style.fontWeight = '900';
+  title.style.fontSize = '20px';
+
+  // Address line
+  const addr = document.createElement('div');
+  addr.textContent = 'Plot no.808/D, 3rd Phase,GIDC\n Vapi-396195, Gujarat INDIA'; 
+
+  addr.style.fontSize = '14px';
+  addr.style.fontWeight = '600';
+  addr.style.marginTop = '2px';
+  addr.style.whiteSpace = 'pre-line'; 
+
+  const sub = document.createElement('div');
+  sub.textContent = 'TISSUE QUALITY CONTROL';
+  sub.style.fontWeight = '700';
+  sub.style.marginTop = '8px';
+
+  const line = document.createElement('div');
+  line.textContent = `Quality: ${quality}    GSM/Ply: ${gsmLabel}`;
+  line.style.marginTop = '50px';
+ 
+  mid.appendChild(title);
+  mid.appendChild(addr);   // address directly under title
+  mid.appendChild(sub);
+  mid.appendChild(line);
+  header.appendChild(mid);
+
+  const right = document.createElement('div');
+  right.style.textAlign = 'right';
+  right.innerHTML = `Date: <b>${dateYMD}</b><br/>Rewinders: 1 & 2`;
+  header.appendChild(right);
+  page.appendChild(header);
+
+  /* Table */
+  const table = document.createElement('table');
+  table.style.borderCollapse = 'collapse';
+  table.style.borderSpacing = '0';
+  table.style.width = '100%';
+  table.style.fontSize = '16px';
+  table.style.tableLayout = 'fixed';
+  table.style.marginTop = '130px';
+
+  // Sum = 98% -> safety room
+  const colgroup = document.createElement('colgroup');
+  ['22%','12%','10%','10%','10%','10%','10%','10%','12%'].forEach(w=>{
+    const c = document.createElement('col'); c.style.width = w; colgroup.appendChild(c);
+  });
+  table.appendChild(colgroup);
+
+  const addCell = (tr, text, isTh=false, align='left')=>{
+    const td = document.createElement(isTh?'th':'td');
+    td.textContent = text ?? '';
+    td.style.border = '1px solid #e0e0e0';
+    td.style.padding = '6px 8px';
+    td.style.whiteSpace = 'nowrap';
+    td.style.textAlign = align;
+    td.style.fontVariantNumeric = 'tabular-nums';
+    if(isTh){ td.style.background = '#f7f7f7'; td.style.fontWeight = '700'; }
+    tr.appendChild(td);
+  };
+
+  const thead = document.createElement('thead');
+  const htr = document.createElement('tr');
+  addCell(htr, 'Metric',  true, 'left');
+  addCell(htr, 'Spec',    true, 'left');
+  addCell(htr, 'RW-1 Min',true, 'right');
+  addCell(htr, 'RW-1 Max',true, 'right');
+  addCell(htr, 'RW-1 Avg',true, 'right');
+  addCell(htr, 'RW-2 Min',true, 'right');
+  addCell(htr, 'RW-2 Max',true, 'right');
+  addCell(htr, 'RW-2 Avg',true, 'right');
+  addCell(htr, 'Overall Avg', true, 'left');   // wide, visible
+  thead.appendChild(htr);
+  table.appendChild(thead);
+
+  const toNum = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+  const fmt1 = x => Number.isFinite(x) ? (Math.round(x*10)/10).toFixed(1) : '';
+
+  const tbody = document.createElement('tbody');
+  METRICS.forEach(m=>{
+    const tr = document.createElement('tr');
+
+    const spec = (r1?.[`${m.label} (Spec)`] ?? r2?.[`${m.label} (Spec)`] ?? '');
+    const r1min = r1?.[`${m.label} (Min)`] ?? '';
+    const r1max = r1?.[`${m.label} (Max)`] ?? '';
+    const r1avg = r1?.[`${m.label} (Avg)`] ?? '';
+    const r2min = r2?.[`${m.label} (Min)`] ?? '';
+    const r2max = r2?.[`${m.label} (Max)`] ?? '';
+    const r2avg = r2?.[`${m.label} (Avg)`] ?? '';
+
+    const a1 = toNum(r1avg), a2 = toNum(r2avg);
+    let overall = '';
+    if(a1!=null || a2!=null){
+      const vals = [a1,a2].filter(v=>v!=null);
+      overall = fmt1(vals.reduce((s,v)=>s+v,0)/vals.length);
+    }
+
+    addCell(tr, m.label, false, 'left');
+    addCell(tr, spec,     false, 'left');
+    addCell(tr, r1min,    false, 'left');
+    addCell(tr, r1max,    false, 'left');
+    addCell(tr, r1avg,    false, 'left');
+    addCell(tr, r2min,    false, 'left');
+    addCell(tr, r2max,    false, 'left');
+    addCell(tr, r2avg,    false, 'left');
+    addCell(tr, overall,  false, 'left');
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  page.appendChild(table);
+
+  return page;
+}
+
+// ==== COA PAGE (with darker borders) ====
+function buildCoaPage(quality, gsmLabel, dateYMD, r1, r2){
+  const page = document.createElement('div');
+  page.className = 'coa-page';
+  page.style.width = '794px';   /* A4 portrait @ ~96dpi */
+  page.style.minHeight = '1123px';
+  page.style.boxSizing = 'border-box';
+  page.style.padding = '18px';
+  page.style.display = 'flex';
+  page.style.flexDirection = 'column';
+  page.style.background = '#fff';
+  page.style.color = '#111';
+
+  /* Header */
+  const header = document.createElement('div');
+  header.style.display = 'grid';
+  header.style.gridTemplateColumns = '150px 1fr 170px';
+  header.style.alignItems = 'center';
+  header.style.columnGap = '20px';
+  header.style.borderBottom = '3px solid #111';   // darker
+  header.style.paddingBottom = '8px';
+
+  const logo = document.getElementById('logoImg').cloneNode(true);
+  logo.style.width = '150px';
+  logo.style.height = '150px';
+  logo.style.objectFit = 'contain';
+  header.appendChild(logo);
+
+  const mid = document.createElement('div');
+mid.style.textAlign = 'center';   // 🔹 center align everything inside
+  const title = document.createElement('div');
+  title.textContent = 'GAYATRISHAKTI TISSUE';
+  title.style.fontWeight = '900';
+  title.style.fontSize = '25px';
+
+  const addr = document.createElement('div');
+  addr.textContent = 'Plot no.808/D, 3rd Phase,GIDC\n Vapi-396195, Gujarat INDIA';
+  addr.style.fontSize = '14px';
+  addr.style.fontWeight = '600';
+  addr.style.marginTop = '2px';
+  addr.style.whiteSpace = 'pre-line';
+
+  const sub = document.createElement('div');
+  sub.textContent = 'TISSUE QUALITY CONTROL';
+  sub.style.fontWeight = '750';
+  sub.style.marginTop = '8px';
+
+  const line = document.createElement('div');
+line.innerHTML = `
+  <div><strong>Quality:</strong> ${quality}</div>
+  <div><strong>GSM/Ply:</strong> ${gsmLabel}</div>
+`;
+line.style.marginTop = '50px';
+line.style.fontWeight = '600';
+line.style.fontSize = '14px';
+line.style.lineHeight = '1.4';
+
+  mid.appendChild(title);
+  mid.appendChild(addr);
+  mid.appendChild(sub);
+  mid.appendChild(line);
+  header.appendChild(mid);
+
+  const right = document.createElement('div');
+  right.style.textAlign = 'right';
+  right.innerHTML = `Date: <b>${dateYMD}</b><br/>Rewinders: 1 & 2`;
+  header.appendChild(right);
+  page.appendChild(header);
+
+  /* Table */
+  const table = document.createElement('table');
+  table.style.borderCollapse = 'collapse';
+  table.style.borderSpacing = '0';
+  table.style.width = '100%';
+  table.style.fontSize = '16px';
+  table.style.tableLayout = 'fixed';
+  table.style.marginTop = '130px';
+  table.style.border = '3px solid #111';         // darker outer border
+
+  // widths sum ~98% to avoid wrapping
+  const colgroup = document.createElement('colgroup');
+  ['22%','12%','11%','11%','11%','11%','11%','11%','12%'].forEach(w=>{
+    const c = document.createElement('col'); c.style.width = w; colgroup.appendChild(c);
+  });
+  table.appendChild(colgroup);
+
+  // DARKER cell borders + strong header bottom rule
+  const addCell = (tr, text, isTh=false, align='left')=>{
+    const td = document.createElement(isTh ? 'th' : 'td');
+    td.textContent = text ?? '';
+    td.style.border = '1px solid #222';         // darker, thicker
+    td.style.padding = '6px 8px';
+    td.style.whiteSpace = 'nowrap';
+    td.style.textAlign = align;
+    td.style.fontVariantNumeric = 'tabular-nums';
+    if (isTh) {
+      td.style.background = '#f3f3f3';
+      td.style.fontWeight = '700';
+      td.style.borderBottom = '2px solid #111'; // stronger header divider
+    }
+    tr.appendChild(td);
+  };
+
+  const thead = document.createElement('thead');
+  const htr = document.createElement('tr');
+  addCell(htr, 'Metric',  true, 'left');
+  addCell(htr, 'Spec',    true, 'left');
+  addCell(htr, 'RW-1 Min',true, 'right');
+  addCell(htr, 'RW-1 Max',true, 'right');
+  addCell(htr, 'RW-1 Avg',true, 'right');
+  addCell(htr, 'RW-2 Min',true, 'right');
+  addCell(htr, 'RW-2 Max',true, 'right');
+  addCell(htr, 'RW-2 Avg',true, 'right');
+  addCell(htr, 'Overall Avg', true, 'left');
+  thead.appendChild(htr);
+  table.appendChild(thead);
+
+  const toNum = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+  const fmt1 = x => Number.isFinite(x) ? (Math.round(x*10)/10).toFixed(1) : '';
+
+  const tbody = document.createElement('tbody');
+  METRICS.forEach(m=>{
+    const tr = document.createElement('tr');
+
+    const spec = (r1?.[`${m.label} (Spec)`] ?? r2?.[`${m.label} (Spec)`] ?? '');
+    const r1min = r1?.[`${m.label} (Min)`] ?? '';
+    const r1max = r1?.[`${m.label} (Max)`] ?? '';
+    const r1avg = r1?.[`${m.label} (Avg)`] ?? '';
+    const r2min = r2?.[`${m.label} (Min)`] ?? '';
+    const r2max = r2?.[`${m.label} (Max)`] ?? '';
+    const r2avg = r2?.[`${m.label} (Avg)`] ?? '';
+
+    const a1 = toNum(r1avg), a2 = toNum(r2avg);
+    let overall = '';
+    if(a1!=null || a2!=null){
+      const vals = [a1,a2].filter(v=>v!=null);
+      overall = fmt1(vals.reduce((s,v)=>s+v,0)/vals.length);
+    }
+
+    addCell(tr, m.label, false, 'left');
+    addCell(tr, spec,     false, 'left');
+    addCell(tr, r1min,    false, 'right');
+    addCell(tr, r1max,    false, 'right');
+    addCell(tr, r1avg,    false, 'right');
+    addCell(tr, r2min,    false, 'right');
+    addCell(tr, r2max,    false, 'right');
+    addCell(tr, r2avg,    false, 'right');
+    addCell(tr, overall,  false, 'right');
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  page.appendChild(table);
+
+  return page;
+}
+
+// ==== GROUP PAGES (unchanged logic) ====
+function buildCoaPagesForDate(dateYMD){
+  const groups = groupCoaByQG(dateYMD);
+  const pages = [];
+  groups.forEach(g=>{
+    const r1 = g.byRew['Rewinder-1'] || null;
+    const r2 = g.byRew['Rewinder-2'] || null;
+    pages.push( buildCoaPage(g.quality, g.gsmLabel, dateYMD, r1, r2) );
+  });
+  return pages;
+}
+
+// ==== EXPORT PDF (higher DPI for crisp/dark lines) ====
+async function exportCoaPdfForDate(dateYMD){
+  if(!(window.jspdf && window.html2canvas)){ alert('PDF libraries not loaded.'); return; }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({orientation:'p', unit:'pt', format:'a4'}); // 595 x 842 pt
+
+  const host = document.createElement('div');
+  host.style.position = 'fixed';
+  host.style.left = '-99999px';
+  host.style.top  = '0';
+  document.body.appendChild(host);
+
+  const pages = buildCoaPagesForDate(dateYMD);
+  if(!pages.length){
+    alert('No data found for that date.');
+    host.remove();
+    return;
+  }
+
+  const PAGE_W = 595, PAGE_H = 842;
+  const MARGIN = 14;
+
+  let first = true;
+  for(const pageDom of pages){
+    host.appendChild(pageDom);
+
+    // Last-chance autoscale if content wider than client box
+    const reset = { transform: pageDom.style.transform, transformOrigin: pageDom.style.transformOrigin };
+    const clientW = pageDom.clientWidth || 794;
+    const scrollW = pageDom.scrollWidth || clientW;
+    if (scrollW > clientW) {
+      const s = Math.min(1, (clientW - 2) / scrollW);
+      pageDom.style.transformOrigin = 'left top';
+      pageDom.style.transform = `scale(${s})`;
+    }
+
+    // Higher scale for crisper/darker lines
+    const canvas = await html2canvas(pageDom, {
+      scale: 3,
+      backgroundColor: '#ffffff',
+      useCORS: true
+    });
+
+    pageDom.style.transform = reset.transform || '';
+    pageDom.style.transformOrigin = reset.transformOrigin || '';
+
+    const imgData = canvas.toDataURL('image/jpeg', 1.0); // max quality
+
+    // Fit into PDF with margins, preserving aspect
+    const innerW = PAGE_W - MARGIN*2;
+    const innerH = PAGE_H - MARGIN*2;
+    const ratio  = Math.min(innerW / canvas.width, innerH / canvas.height);
+    const drawW  = canvas.width  * ratio;
+    const drawH  = canvas.height * ratio;
+    const x = (PAGE_W - drawW)/2;
+    const y = (PAGE_H - drawH)/2;
+
+    if(!first) pdf.addPage();
+    first = false;
+    pdf.addImage(imgData, 'JPEG', x, y, drawW, drawH);
+
+    host.removeChild(pageDom);
+  }
+
+  pdf.save(`COA_${dateYMD}.pdf`);
+  document.body.removeChild(host);
+}
+
+/* COA click */
+const coaBtn = document.getElementById('dlCoaPdfBtn');
+if(coaBtn){
+  coaBtn.addEventListener('click', async ()=>{
+    if(!Array.isArray(LAST_ROWS) || !LAST_ROWS.length){
+      alert('Please generate the report first.');
+      return;
+    }
+    const dates = [...new Set(LAST_ROWS.map(r=>r.Date))].sort((a,b)=> a<b ? 1 : -1);
+    const latest = dates[0];
+    const input = prompt('Enter COA date (YYYY-MM-DD):', latest || '');
+    if(!input) return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(input)){ alert('Please enter date as YYYY-MM-DD'); return; }
+    try{ await exportCoaPdfForDate(input); }
+    catch(err){ console.error(err); alert('Failed to generate COA PDF.'); }
+  });
+}
+}); /* end DOMContentLoaded */
+</script>
+</body>
+</html>

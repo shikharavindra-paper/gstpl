@@ -8,8 +8,8 @@ import { LOGO_KEY } from '@/lib/constants'
 import { prepareRows, aggregate, buildSpecsMap, attachSpecs } from '@/lib/dataProcessing'
 
 interface ControlsProps {
-  onWorkbookChange: (workbook: WorkbookData | null) => void
-  onReportGenerated: (rows: ProcessedRow[]) => void
+  onWorkbookChange: (workbook: WorkbookData | null, format?: string, sheets?: { rew1: string, rew2: string }) => void
+  onReportGenerated: (rows: ProcessedRow[], sheets?: { rew1: string, rew2: string }) => void
   onTrendsClick: () => void
   workbook: WorkbookData | null
 }
@@ -75,7 +75,7 @@ export default function Controls({
         }
       })
       
-      onWorkbookChange(workbookData)
+      onWorkbookChange(workbookData, dateFormat, { rew1: r1 || rew1Sel, rew2: r2 || rew2Sel })
       
       // Auto-detect sheets
       const guess = (subs: string[]) => sheetNames.find(n => 
@@ -158,7 +158,7 @@ export default function Controls({
       const specObj = buildSpecsMap(workbook[specSel] || [])
       const withSpecs = attachSpecs(agg, specObj)
       
-      onReportGenerated(withSpecs)
+      onReportGenerated(withSpecs, { rew1: rew1Sel, rew2: rew2Sel })
       setHasData(withSpecs.length > 0)
       setStatus('done')
     } catch (err: any) {
@@ -233,7 +233,12 @@ export default function Controls({
           </div>
           <div>
             <label>Date Parse (optional)</label>
-            <select id="dateFormat" value={dateFormat} onChange={(e) => setDateFormat(e.target.value)}>
+            <select id="dateFormat" value={dateFormat} onChange={(e) => {
+              setDateFormat(e.target.value)
+              if (workbook) {
+                onWorkbookChange(workbook, e.target.value, { rew1: rew1Sel, rew2: rew2Sel })
+              }
+            }}>
               <option value="">Auto</option>
               <option value="dd/mm/yyyy">dd/mm/yyyy</option>
               <option value="mm/dd/yyyy">mm/dd/yyyy</option>

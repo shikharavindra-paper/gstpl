@@ -49,7 +49,12 @@ export default function Controls({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setStatus('loading...')
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file) {
+      console.log('No file selected')
+      return
+    }
+
+    console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type)
 
     const badExt = /\.(html?|htm|txt|csv|json)$/i.test(file.name)
     if (badExt) {
@@ -59,25 +64,17 @@ export default function Controls({
     }
 
     try {
+      console.log('Reading file...')
       const data = await file.arrayBuffer()
+      console.log('File read, size:', data.byteLength)
       const wb = XLSX.read(data, { type: "array" })
+      console.log('Workbook parsed, sheets:', wb.SheetNames)
       
       const sheetNames = wb.SheetNames || []
       setSheets(sheetNames)
       setShowSelectors(true)
       
-      // Convert workbook to format for other components
-      const workbookData: WorkbookData = {}
-      sheetNames.forEach(name => {
-        const ws = wb.Sheets[name]
-        if (ws) {
-          workbookData[name] = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true })
-        }
-      })
-      
-      onWorkbookChange(workbookData, dateFormat, { rew1: r1 || rew1Sel, rew2: r2 || rew2Sel })
-      
-      // Auto-detect sheets
+      // Auto-detect sheets first
       const guess = (subs: string[]) => sheetNames.find(n => 
         subs.some(s => n.toLowerCase().includes(s))
       )
@@ -90,11 +87,22 @@ export default function Controls({
       if (r2) setRew2Sel(r2)
       if (sp) setSpecSel(sp)
       
+      // Convert workbook to format for other components
+      const workbookData: WorkbookData = {}
+      sheetNames.forEach(name => {
+        const ws = wb.Sheets[name]
+        if (ws) {
+          workbookData[name] = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true })
+        }
+      })
+      
+      onWorkbookChange(workbookData, dateFormat, { rew1: r1 || rew1Sel, rew2: r2 || rew2Sel })
+      
       setStatus('ready')
-    } catch (err) {
+    } catch (err: any) {
       setStatus('error')
-      alert(`The selected file is not a valid Excel workbook.\nSelected: ${file.name}`)
-      console.error(err)
+      console.error('Excel upload error:', err)
+      alert(`Error loading Excel file: ${file.name}\n\n${err.message || 'The selected file is not a valid Excel workbook.'}`)
     }
   }
 

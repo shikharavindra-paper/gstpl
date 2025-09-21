@@ -29,6 +29,7 @@ export interface TrendRows {
 export interface Metric {
   key: string
   label: string
+  unit?: string
   compute?: (row: any) => number | null
 }
 

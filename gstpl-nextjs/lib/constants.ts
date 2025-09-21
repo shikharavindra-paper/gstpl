@@ -19,33 +19,35 @@ export const COLUMN_MAP = {
 }
 
 export const METRICS: Metric[] = [
-  { key: "gsm", label: "GSM" },
-  { key: "thickness", label: "Thickness" },
-  { key: "bulk", label: "Bulk" },
-  { key: "dry_md", label: "Dry Tensile MD" },
-  { key: "dry_cd", label: "Dry Tensile CD" },
+  { key: "gsm", label: "Substance (1 Ply)", unit: "g/m2" },
+  { key: "thickness", label: "Thickness (1 PLY)", unit: "Micron" },
+  { key: "bulk", label: "*Bulk", unit: "CC/gm" },
+  { key: "dry_md", label: "*Dry Tensile Strength MD", unit: "gf/25mm" },
+  { key: "dry_cd", label: "CD", unit: "gf/25mm" },
   { 
     key: "dry_md_cd_ratio", 
-    label: "MD/CD (Dry)", 
+    label: "MDT/CDT RATIO",
+    unit: "",
     compute: (r: any) => {
       const md = r.dry_md || r['Dry Tensile MD']
       const cd = r.dry_cd || r['Dry Tensile CD']
       return md && cd && cd !== 0 ? md / cd : null
     }
   },
-  { key: "stretch", label: "Stretch / Elongation %" },
-  { key: "wet_strength", label: "Wet Tensile" },
+  { key: "stretch", label: "Stretch MD", unit: "%" },
+  { key: "wet_strength", label: "*Wet Tensile Strength MD", unit: "gf/50mm" },
   { 
     key: "wet_dry_ratio", 
-    label: "Wet/Dry Ratio", 
+    label: "Wet / Dry Tensile",
+    unit: "%",
     compute: (r: any) => {
       const wet = r.wet_strength || r['Wet Tensile']
       const dry = r.dry_md || r['Dry Tensile MD']
-      return wet && dry && dry !== 0 ? wet / dry : null
+      return wet && dry && dry !== 0 ? (wet / dry * 100) : null
     }
   },
-  { key: "brightness", label: "Brightness" },
-  { key: "length", label: "Length" }
+  { key: "brightness", label: "*ISO Brightness(Frank, PTI )", unit: "% ISO" },
+  { key: "length", label: "Reel Length Meter", unit: "" }
 ]
 
 export const PREFS_KEY = 'gstpl_ui_prefs_v7'

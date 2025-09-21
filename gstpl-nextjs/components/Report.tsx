@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx'
 import { ProcessedRow } from '@/lib/types'
 import { METRICS } from '@/lib/constants'
 import { exportCoaPdfForDate } from '@/lib/pdfExport'
+import { exportDailyQualityReport } from '@/lib/excelExport'
 
 interface ReportProps {
   rows: ProcessedRow[]
@@ -104,17 +105,28 @@ export default function Report({ rows }: ReportProps) {
     }
     
     if (xlsBtn) {
-      xlsBtn.onclick = () => {
-        const exportRows = getExportRows()
-        if (!exportRows.length) {
-          alert("Nothing to export.")
+      xlsBtn.onclick = async () => {
+        if (!rows.length) {
+          alert('Please generate the report first.')
           return
         }
         
-        const ws = XLSX.utils.json_to_sheet(exportRows)
-        const wb = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(wb, ws, "Report")
-        XLSX.writeFile(wb, "Rewinder_Daily_Report_Specs_MinMaxAvg.xlsx")
+        const dates = [...new Set(rows.map(r => r.Date))].sort((a, b) => a < b ? 1 : -1)
+        const latest = dates[0]
+        const input = prompt('Enter date for report (YYYY-MM-DD):', latest || '')
+        if (!input) return
+        
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+          alert('Please enter date as YYYY-MM-DD')
+          return
+        }
+        
+        try {
+          await exportDailyQualityReport(rows, input)
+        } catch (err) {
+          console.error(err)
+          alert('Failed to generate Excel report.')
+        }
       }
     }
     

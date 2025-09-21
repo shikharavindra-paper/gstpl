@@ -18,13 +18,13 @@ import ChartDataLabels from 'chartjs-plugin-datalabels'
 import { TrendRows, TrendRow } from '@/lib/types'
 import { METRICS, CHART_COLORS, RIGHT_AXIS_METRICS } from '@/lib/constants'
 import {
-  normGsmPlyLabel,
   parseDMY,
   fmtDMY,
   periodKeyFor,
   friendlyLabel,
   inRangeByDMYLabel
 } from '@/lib/trendUtils'
+import { normGsmPlyLabel } from '@/lib/utils'
 
 ChartJS.register(
   CategoryScale,
